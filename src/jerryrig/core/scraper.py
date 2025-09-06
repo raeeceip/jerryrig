@@ -1,368 +1,358 @@
-"""Repository scraper using gitingest and web scraping techniques."""
-
-import os
-import json
-import asyncio
 import time
-from typing import Dict, List, Optional, Any
-from pathlib import Path
-import requests
-import aiohttp
-from bs4 import BeautifulSoup
+import os
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import logging
 
-try:
-    from playwright.sync_api import sync_playwright
-    PLAYWRIGHT_AVAILABLE = True
-except ImportError:
-    sync_playwright = None
-    PLAYWRIGHT_AVAILABLE = False
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-from ..utils.logger import get_logger
-
-logger = get_logger(__name__)
-
-
-class RepositoryScraper:
-    """Scrapes repositories using gitingest and other techniques."""
-    
-    def __init__(self, base_url: str = "https://gitingest.com"):
-        self.base_url = base_url
-        self.session = requests.Session()
-        self.use_browser = PLAYWRIGHT_AVAILABLE
-        
-        if not PLAYWRIGHT_AVAILABLE:
-            logger.warning("Playwright not available. Using basic HTTP requests (may not work with interactive sites)")
-        else:
-            logger.info("Playwright available. Using browser automation for gitingest")
-        
-    def scrape_repository(self, repo_url: str, output_dir: str = "./scraped") -> str:
-        """Scrape a repository and save the analysis.
-        
-        Args:
-            repo_url: URL of the repository to scrape
-            output_dir: Directory to save scraped data
-            
-        Returns:
-            Path to the scraped data directory
+class GitingestScraper:
+    def __init__(self, headless=False):
         """
-        logger.info(f"Starting repository scrape: {repo_url}")
-        
-        # Create output directory
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
+        Initialize the scraper with Chrome WebDriver
+
+        Args:
+            headless (bool): Whether to run browser in headless mode
+        """
+        self.driver = None
+        self.setup_driver(headless)
+
+    def setup_driver(self, headless=False):
+        """Setup Chrome WebDriver with appropriate options"""
+        chrome_options = Options()
+
+        if headless:
+            chrome_options.add_argument("--headless")
+
+        # Additional options for stability
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+
         try:
-            # Use gitingest to get repository analysis
-            analysis = self._get_gitingest_analysis(repo_url)
-            
-            # Save analysis to file
-            analysis_file = output_path / "repository_analysis.json"
-            with open(analysis_file, 'w', encoding='utf-8') as f:
-                json.dump(analysis, f, indent=2)
-            
-            logger.info(f"Repository analysis saved to: {analysis_file}")
-            return str(output_path)
-            
+            self.driver = webdriver.Chrome(options=chrome_options)
+            self.driver.implicitly_wait(10)
+            logger.info("Chrome WebDriver initialized successfully")
         except Exception as e:
-            logger.error(f"Error scraping repository: {e}")
+            logger.error(f"Failed to initialize WebDriver: {e}")
             raise
-            
-    def _get_gitingest_analysis(self, repo_url: str) -> Dict[str, Any]:
-        """Get repository analysis from gitingest.com.
-        
-        Args:
-            repo_url: URL of the repository
-            
-        Returns:
-            Dictionary containing repository analysis
-        """
-        logger.info(f"Requesting gitingest analysis for: {repo_url}")
-        
-        if self.use_browser and PLAYWRIGHT_AVAILABLE:
-            return self._get_gitingest_with_browser(repo_url)
-        else:
-            return self._get_gitingest_fallback(repo_url)
-            
-    def _get_gitingest_with_browser(self, repo_url: str) -> Dict[str, Any]:
-        """Get repository content using browser automation to click Ingest button.
-        
-        Args:
-            repo_url: URL of the repository
-            
-        Returns:
-            Dictionary containing repository analysis
-        """
-        logger.info(f"Using browser automation for gitingest: {repo_url}")
-        
-        try:
-            # Format the gitingest URL
-            if "github.com" in repo_url:
-                parts = repo_url.rstrip('/').split('/')
-                if len(parts) >= 2:
-                    owner = parts[-2]
-                    repo = parts[-1]
-                    gitingest_url = f"{self.base_url}/{owner}/{repo}"
-                else:
-                    raise ValueError(f"Invalid GitHub URL format: {repo_url}")
-            else:
-                logger.warning(f"Non-GitHub repository detected: {repo_url}")
-                gitingest_url = f"{self.base_url}?url={repo_url}"
-            
-            logger.info(f"Navigating to gitingest: {gitingest_url}")
-            
-            if not sync_playwright:
-                raise ImportError("Playwright not available")
-            
-            with sync_playwright() as p:
-                # Launch browser
-                browser = p.chromium.launch(headless=True)  # Set to False for debugging
-                context = browser.new_context()
-                page = context.new_page()
-                
-                try:
-                    # Navigate to gitingest page
-                    page.goto(gitingest_url, timeout=30000)
-                    
-                    # Wait for page to load
-                    page.wait_for_load_state("networkidle")
-                    
-                    # Look for the Ingest button and click it
-                    ingest_button = page.locator('button[type="submit"]:has-text("Ingest")')
-                    
-                    if ingest_button.count() > 0:
-                        logger.info("Found Ingest button, clicking...")
-                        ingest_button.click()
-                        
-                        # Wait for the result content to be generated
-                        result_textarea = page.locator('#result-content')
-                        
-                        # Wait for content to appear (up to 30 seconds)
-                        logger.info("Waiting for gitingest to generate content...")
-                        
-                        # Poll for content generation
-                        max_wait_time = 30  # seconds
-                        wait_interval = 2   # seconds
-                        elapsed_time = 0
-                        
-                        while elapsed_time < max_wait_time:
-                            if result_textarea.count() > 0:
-                                content = result_textarea.input_value()
-                                if content and len(content.strip()) > 100:  # Has substantial content
-                                    logger.info(f"Content generated! Length: {len(content)} characters")
-                                    break
-                            
-                            time.sleep(wait_interval)
-                            elapsed_time += wait_interval
-                            logger.info(f"Still waiting for content... ({elapsed_time}s)")
-                        
-                        # Get the final content
-                        if result_textarea.count() > 0:
-                            content = result_textarea.input_value()
-                            if content and len(content.strip()) > 50:
-                                logger.info(f"Successfully extracted {len(content)} characters from gitingest")
-                                return self._parse_gitingest_content(content, repo_url)
-                            else:
-                                logger.warning("Generated content is too short or empty")
-                        else:
-                            logger.warning("Could not find result textarea")
-                    else:
-                        logger.warning("Could not find Ingest button")
-                        # Try to get any existing content on the page
-                        page_content = page.content()
-                        return self._parse_gitingest_content(page_content, repo_url)
-                
-                finally:
-                    browser.close()
-                    
-        except Exception as e:
-            logger.error(f"Error using browser automation: {e}")
-            return self._get_gitingest_fallback(repo_url)
-        
-        # If we get here, something went wrong
-        logger.warning("Browser automation completed but no content extracted")
-        return self._get_mock_analysis(repo_url)
-        
-    def _get_gitingest_fallback(self, repo_url: str) -> Dict[str, Any]:
-        """Fallback method using simple HTTP requests.
-        
-        Args:
-            repo_url: URL of the repository
-            
-        Returns:
-            Dictionary containing repository analysis
-        """
-        logger.info(f"Using fallback HTTP method for: {repo_url}")
-        
-        try:
-            # Format the gitingest URL
-            # gitingest.com typically works with GitHub URLs
-            if "github.com" in repo_url:
-                # Extract owner/repo from GitHub URL
-                parts = repo_url.rstrip('/').split('/')
-                if len(parts) >= 2:
-                    owner = parts[-2]
-                    repo = parts[-1]
-                    gitingest_url = f"{self.base_url}/{owner}/{repo}"
-                else:
-                    raise ValueError(f"Invalid GitHub URL format: {repo_url}")
-            else:
-                # For non-GitHub repos, we might need different handling
-                logger.warning(f"Non-GitHub repository detected: {repo_url}")
-                gitingest_url = f"{self.base_url}?url={repo_url}"
-            
-            logger.info(f"Fetching from gitingest: {gitingest_url}")
-            
-            # Make request to gitingest.com
-            headers = {
-                'User-Agent': 'JerryRig/1.0 (https://github.com/raeeceip/jerryrig)',
-                'Accept': 'text/plain, text/html, application/json'
-            }
-            
-            response = self.session.get(gitingest_url, headers=headers, timeout=30)
-            response.raise_for_status()
-            
-            # Parse the response
-            content_type = response.headers.get('content-type', '').lower()
 
-            #
-            
-            if 'application/json' in content_type:
-                # If gitingest returns JSON, parse it directly
-                data = response.json()
-            else:
-                # If gitingest returns plain text, parse it
-                content = response.text
-                data = self._parse_gitingest_content(content, repo_url)
-            
-            return data
-            
-        except requests.RequestException as e:
-            logger.error(f"Error fetching from gitingest: {e}")
-            # Return mock data as fallback
-            return self._get_mock_analysis(repo_url)
-        except Exception as e:
-            logger.error(f"Error processing gitingest response: {e}")
-            return self._get_mock_analysis(repo_url)
-            
-    def _parse_gitingest_content(self, content: str, repo_url: str) -> Dict[str, Any]:
-        """Parse gitingest plain text content into structured data.
-        
-        Args:
-            content: Raw content from gitingest
-            repo_url: Original repository URL
-            
-        Returns:
-            Structured repository analysis
+    def fill_and_submit_form(self, github_url, pattern_type="exclude", pattern="", max_file_size=50, token=""):
         """
-        lines = content.split('\n')
-        
-        # Initialize analysis structure
-        analysis = {
-            "repository_url": repo_url,
-            "analysis_timestamp": "2025-09-06T00:00:00Z",
-            "summary": "",
-            "language_breakdown": {
-                "primary_language": "Unknown",
-                "languages": []
-            },
-            "file_structure": [],
-            "dependencies": [],
-            "readme_content": "",
-            "license": "Unknown",
-            "contributors": 0,
-            "last_updated": "Unknown",
-            "raw_content": content[:1000] + "..." if len(content) > 1000 else content  # Truncated for storage
-        }
-        
-        # Extract basic information from content
-        current_section = ""
-        for line in lines[:50]:  # Analyze first 50 lines for metadata
-            line = line.strip()
-            if not line:
-                continue
-                
-            # Look for common patterns
-            if line.startswith('#') or line.startswith('Repository:'):
-                analysis["summary"] = line.replace('#', '').replace('Repository:', '').strip()
-            elif 'language:' in line.lower() or 'primary language:' in line.lower():
-                # Try to extract language information
-                if ':' in line:
-                    lang = line.split(':')[1].strip()
-                    analysis["language_breakdown"]["primary_language"] = lang
-                    analysis["language_breakdown"]["languages"] = [lang]
-        
-        # If we have content, consider it a successful analysis
-        if content.strip():
-            analysis["status"] = "success"
-            analysis["file_count"] = len([l for l in lines if l.strip() and not l.startswith('#')])
-        else:
-            analysis["status"] = "empty"
-            
-        return analysis
-        
-    def _get_mock_analysis(self, repo_url: str) -> Dict[str, Any]:
-        """Return mock analysis data when gitingest is not available.
-        
+        Fill out the Gitingest form and submit it
+
         Args:
-            repo_url: Repository URL
-            
-        Returns:
-            Mock repository analysis
+            github_url (str): GitHub repository URL
+            pattern_type (str): "exclude" or "include"
+            pattern (str): File pattern (e.g., "*.md, src/")
+            max_file_size (int): Maximum file size in KB
+            token (str): Personal Access Token (if needed for private repos)
         """
-        logger.warning(f"Using mock analysis for: {repo_url}")
-        
-        return {
-            "repository_url": repo_url,
-            "analysis_timestamp": "2025-09-06T00:00:00Z",
-            "summary": f"Mock analysis for {repo_url} - gitingest not available",
-            "language_breakdown": {
-                "primary_language": "Unknown",
-                "languages": []
-            },
-            "file_structure": [],
-            "dependencies": [],
-            "readme_content": "Mock README content",
-            "license": "Unknown",
-            "contributors": 0,
-            "last_updated": "Unknown",
-            "status": "mock",
-            "warning": "This is mock data - gitingest service was not available"
-        }
-            
-    async def scrape_multiple_repositories(self, repo_urls: List[str], output_dir: str = "./scraped") -> List[str]:
-        """Scrape multiple repositories concurrently.
-        
-        Args:
-            repo_urls: List of repository URLs
-            output_dir: Base directory for scraped data
-            
-        Returns:
-            List of paths to scraped data directories
-        """
-        logger.info(f"Starting concurrent scrape of {len(repo_urls)} repositories")
-        
-        tasks = []
-        for i, repo_url in enumerate(repo_urls):
-            repo_output_dir = f"{output_dir}/repo_{i:03d}"
-            task = asyncio.create_task(
-                self._async_scrape_repository(repo_url, repo_output_dir)
+        try:
+            # Navigate to Gitingest
+            logger.info("Navigating to Gitingest...")
+            self.driver.get("https://gitingest.com/")
+
+            # Wait for page to load
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, "input_text"))
             )
-            tasks.append(task)
-            
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        successful_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.error(f"Error scraping repository {repo_urls[i]}: {result}")
-            else:
-                successful_results.append(result)
-                
-        logger.info(f"Successfully scraped {len(successful_results)} repositories")
-        return successful_results
-        
-    async def _async_scrape_repository(self, repo_url: str, output_dir: str) -> str:
-        """Async version of repository scraping."""
-        # For now, just call the sync version
-        # TODO: Implement proper async scraping
-        return self.scrape_repository(repo_url, output_dir)
+
+            # Fill in the GitHub URL
+            logger.info(f"Filling GitHub URL: {github_url}")
+            url_input = self.driver.find_element(By.ID, "input_text")
+            url_input.clear()
+            url_input.send_keys(github_url)
+
+            # Set pattern type if different from default
+            if pattern_type != "exclude":
+                logger.info(f"Setting pattern type to: {pattern_type}")
+                pattern_select = self.driver.find_element(By.ID, "pattern_type")
+                pattern_select.send_keys(pattern_type)
+
+            # Fill pattern if provided
+            if pattern:
+                logger.info(f"Setting pattern: {pattern}")
+                pattern_input = self.driver.find_element(By.ID, "pattern")
+                pattern_input.clear()
+                pattern_input.send_keys(pattern)
+
+            # Set file size slider
+            if max_file_size != 50:
+                logger.info(f"Setting max file size: {max_file_size}KB")
+                file_size_slider = self.driver.find_element(By.ID, "file_size")
+                # Calculate slider value (assuming range 1-500)
+                slider_value = min(max(max_file_size, 1), 500)
+                self.driver.execute_script(f"arguments[0].value = {slider_value};", file_size_slider)
+
+            # Handle private repository token if provided
+            if token:
+                logger.info("Setting up private repository access...")
+                # Check the private repository checkbox
+                private_repo_checkbox = self.driver.find_element(By.ID, "showAccessSettings")
+                if not private_repo_checkbox.is_selected():
+                    private_repo_checkbox.click()
+
+                # Wait for token field to appear and fill it
+                WebDriverWait(self.driver, 5).until(
+                    EC.visibility_of_element_located((By.ID, "token"))
+                )
+                token_input = self.driver.find_element(By.ID, "token")
+                token_input.clear()
+                token_input.send_keys(token)
+
+            # Submit the form
+            logger.info("Submitting form...")
+            submit_button = self.driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+            submit_button.click()
+
+            logger.info("Form submitted successfully")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error filling and submitting form: {e}")
+            return False
+
+    def wait_for_results(self, timeout=30):
+        """
+        Wait for the results to appear on the page
+
+        Args:
+            timeout (int): Maximum time to wait in seconds
+        """
+        try:
+            logger.info(f"Waiting for results (timeout: {timeout}s)...")
+
+            # Wait for either results or error
+            WebDriverWait(self.driver, timeout).until(
+                lambda driver: (
+                    driver.find_element(By.ID, "results-section").is_displayed() or
+                    driver.find_element(By.ID, "results-error").is_displayed()
+                )
+            )
+
+            # Check if there's an error
+            try:
+                error_element = self.driver.find_element(By.ID, "results-error")
+                if error_element.is_displayed():
+                    error_text = error_element.text
+                    logger.error(f"Error occurred: {error_text}")
+                    return False
+            except NoSuchElementException:
+                pass
+
+            # Check if results are available
+            try:
+                results_section = self.driver.find_element(By.ID, "results-section")
+                if results_section.is_displayed():
+                    logger.info("Results are now available")
+                    return True
+            except NoSuchElementException:
+                pass
+
+            return False
+
+        except TimeoutException:
+            logger.warning(f"Timeout waiting for results after {timeout} seconds")
+            return False
+        except Exception as e:
+            logger.error(f"Error waiting for results: {e}")
+            return False
+
+    def extract_file_contents(self):
+        """
+        Extract the file contents from the results section
+
+        Returns:
+            dict: Dictionary containing summary, directory structure, and file contents
+        """
+        try:
+            logger.info("Extracting file contents...")
+
+            results = {
+                'summary': '',
+                'directory_structure': '',
+                'file_contents': ''
+            }
+
+            # Extract summary
+            try:
+                summary_element = self.driver.find_element(By.ID, "result-summary")
+                results['summary'] = summary_element.get_attribute('value') or summary_element.text
+                logger.info("Summary extracted successfully")
+            except NoSuchElementException:
+                logger.warning("Summary element not found")
+
+            # Extract directory structure
+            try:
+                # Try to get from the hidden input first
+                dir_structure_input = self.driver.find_element(By.ID, "directory-structure-content")
+                results['directory_structure'] = dir_structure_input.get_attribute('value')
+
+                # If empty, try to get from the pre element
+                if not results['directory_structure']:
+                    dir_structure_pre = self.driver.find_element(By.ID, "directory-structure-pre")
+                    results['directory_structure'] = dir_structure_pre.text
+
+                logger.info("Directory structure extracted successfully")
+            except NoSuchElementException:
+                logger.warning("Directory structure element not found")
+
+            # Extract file contents
+            try:
+                content_element = self.driver.find_element(By.ID, "result-content")
+                results['file_contents'] = content_element.get_attribute('value') or content_element.text
+                logger.info("File contents extracted successfully")
+            except NoSuchElementException:
+                logger.warning("File contents element not found")
+
+            return results
+
+        except Exception as e:
+            logger.error(f"Error extracting file contents: {e}")
+            return None
+
+    def save_to_file(self, results, output_filename="gitingest_output.txt"):
+        """
+        Save the extracted results to a text file
+
+        Args:
+            results (dict): Results dictionary from extract_file_contents
+            output_filename (str): Output filename
+        """
+        try:
+            logger.info(f"Saving results to {output_filename}...")
+
+            with open(output_filename, 'w', encoding='utf-8') as f:
+                f.write("=" * 80 + "\n")
+                f.write("GITINGEST RESULTS\n")
+                f.write("=" * 80 + "\n\n")
+
+                if results['summary']:
+                    f.write("SUMMARY:\n")
+                    f.write("-" * 40 + "\n")
+                    f.write(results['summary'])
+                    f.write("\n\n")
+
+                if results['directory_structure']:
+                    f.write("DIRECTORY STRUCTURE:\n")
+                    f.write("-" * 40 + "\n")
+                    f.write(results['directory_structure'])
+                    f.write("\n\n")
+
+                if results['file_contents']:
+                    f.write("FILE CONTENTS:\n")
+                    f.write("-" * 40 + "\n")
+                    f.write(results['file_contents'])
+                    f.write("\n")
+
+            logger.info(f"Results saved successfully to {output_filename}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error saving to file: {e}")
+            return False
+
+    def scrape_repository(self, github_url, pattern_type="exclude", pattern="",
+                         max_file_size=50, token="", output_filename="file.txt",
+                         wait_timeout=30):
+        """
+        Complete scraping workflow
+
+        Args:
+            github_url (str): GitHub repository URL
+            pattern_type (str): "exclude" or "include"
+            pattern (str): File pattern
+            max_file_size (int): Maximum file size in KB
+            token (str): Personal Access Token
+            output_filename (str): Output filename (auto-generated if None)
+            wait_timeout (int): Timeout for waiting for results
+
+        Returns:
+            bool: Success status
+        """
+        try:
+            # Generate output filename if not provided
+            if output_filename is None:
+                repo_name = github_url.split('/')[-1].replace('.git', '')
+                output_filename = f"gitingest_{repo_name}_{int(time.time())}.txt"
+
+            logger.info(f"Starting scraping workflow for: {github_url}")
+
+            # Step 1: Fill and submit form
+            if not self.fill_and_submit_form(github_url, pattern_type, pattern, max_file_size, token):
+                return False
+
+            # Step 2: Wait for results
+            if not self.wait_for_results(wait_timeout):
+                return False
+
+            # Step 3: Extract file contents
+            results = self.extract_file_contents()
+            if not results:
+                return False
+
+            # Step 4: Save to file
+            if not self.save_to_file(results, output_filename):
+                return False
+
+            logger.info("Scraping completed successfully!")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error in scraping workflow: {e}")
+            return False
+
+    def close(self):
+        """Close the WebDriver"""
+        if self.driver:
+            self.driver.quit()
+            logger.info("WebDriver closed")
+
+
+def run(url):
+    """Example usage of the GitingestScraper"""
+
+    # Configuration
+    #GITHUB_URL = "https://github.com/coderamp-labs/gitingest"  # Example repository
+    PATTERN_TYPE = "exclude"  # or "include"
+    PATTERN = "*.md, tests/"  # Example pattern
+    MAX_FILE_SIZE = 50  # KB
+    TOKEN = ""  # Leave empty for public repos
+    WAIT_TIMEOUT = 30  # seconds
+    HEADLESS = True  # Set to True to run without GUI
+
+    # Initialize scraper
+    scraper = GitingestScraper(headless=HEADLESS)
+
+    try:
+        # Run the scraping workflow
+        success = scraper.scrape_repository(
+            github_url=url,
+            pattern_type=PATTERN_TYPE,
+            pattern=PATTERN,
+            max_file_size=MAX_FILE_SIZE,
+            token=TOKEN,
+            wait_timeout=WAIT_TIMEOUT
+        )
+
+        if success:
+            print("✅ Scraping completed successfully!")
+        else:
+            print("❌ Scraping failed!")
+
+    except KeyboardInterrupt:
+        logger.info("Scraping interrupted by user")
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+    finally:
+        # Always close the browser
+        scraper.close()
