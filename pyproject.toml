@@ -36,6 +36,7 @@ dependencies = [
     "httpx>=0.25.0",
     "lxml>=4.9.0",
     "GitPython>=3.1.40",
+    "playwright>=1.40.0",
 ]
 
 [project.optional-dependencies]

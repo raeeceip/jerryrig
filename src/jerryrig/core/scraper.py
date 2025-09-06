@@ -356,3 +356,56 @@ def run(url):
     finally:
         # Always close the browser
         scraper.close()
+
+
+class RepositoryScraper:
+    """Wrapper class for GitingestScraper to match CLI interface expectations."""
+    
+    def __init__(self, headless=True):
+        self.headless = headless
+        
+    def scrape_repository(self, repo_url, output_dir):
+        """Scrape a repository using the run function."""
+        try:
+            # Create output directory if it doesn't exist
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Generate output filename
+            repo_name = repo_url.split('/')[-1].replace('.git', '')
+            output_filename = os.path.join(output_dir, f"gitingest_{repo_name}.txt")
+            
+            # Use the existing GitingestScraper with modifications
+            PATTERN_TYPE = "exclude"
+            PATTERN = "*.md, tests/"
+            MAX_FILE_SIZE = 50
+            TOKEN = ""
+            WAIT_TIMEOUT = 30
+            
+            # Initialize scraper
+            scraper = GitingestScraper(headless=self.headless)
+            
+            try:
+                # Run the scraping workflow
+                success = scraper.scrape_repository(
+                    github_url=repo_url,
+                    pattern_type=PATTERN_TYPE,
+                    pattern=PATTERN,
+                    max_file_size=MAX_FILE_SIZE,
+                    token=TOKEN,
+                    output_filename=output_filename,
+                    wait_timeout=WAIT_TIMEOUT
+                )
+                
+                if success:
+                    logger.info(f"✅ Scraping completed successfully! Output: {output_filename}")
+                    return output_filename
+                else:
+                    raise Exception("Scraping failed")
+                    
+            finally:
+                # Always close the browser
+                scraper.close()
+                
+        except Exception as e:
+            logger.error(f"Error in RepositoryScraper: {e}")
+            raise

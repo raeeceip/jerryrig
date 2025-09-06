@@ -1,0 +1,14 @@
+# Default JerryRig configuration
+scraper:
+  gitingest_url: "https://gitingest.com"
+  timeout: 30
+  use_browser: true
+
+migrator:
+  default_target: "python"
+  preserve_structure: true
+  
+agents:
+  solace:
+    base_url: "https://api.solace.cloud"
+    timeout: 60

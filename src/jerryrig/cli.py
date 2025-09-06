@@ -75,6 +75,21 @@ def migrate(source_path: str, target_language: str, output_dir: str):
 
 @main.command()
 @click.argument("repo_url")
+def test_scraper(repo_url: str):
+    """Test the repository scraper using the built-in run function."""
+    console.print(f"🧪 Testing scraper with: {repo_url}")
+    
+    try:
+        # Import and use the run function directly
+        from .core.scraper import run
+        run(repo_url)
+        console.print(f"✅ Test completed successfully!")
+    except Exception as e:
+        console.print(f"❌ Error testing scraper: {e}", style="red")
+
+
+@main.command()
+@click.argument("repo_url")
 @click.argument("target_language")
 @click.option(
     "--output-dir", 
@@ -103,22 +118,30 @@ def full_migration(repo_url: str, target_language: str, output_dir: str):
         # Step 2: Initialize custom Solace coding agent
         console.print("\n🤖 Step 2: Spawning custom Solace coding agent...")
         from .agents.solace_agent import SolaceAgent
-        from .core.repository_agent import RepositoryMigrationAgent
+        try:
+            from .core.repository_agent import RepositoryMigrationAgent
+        except ImportError:
+            from .utils.logger import get_logger
+            logger = get_logger(__name__)
+            logger.error("Repository agent not available. Using basic migration.")
+            RepositoryMigrationAgent = None
         
-        # Create specialized repository migration agent
-        migration_agent = RepositoryMigrationAgent()
-        migration_result = migration_agent.migrate_repository(
-            analysis_dir=analysis_dir,
-            target_language=target_language,
-            output_dir=output_dir
-        )
-        
-        if migration_result["success"]:
-            console.print(f"✅ Repository migration complete!")
-            console.print(f"📁 Migrated files: {migration_result['migrated_files']}")
-            console.print(f"📊 Migration summary: {migration_result['summary']}")
+        if RepositoryMigrationAgent is not None:
+            migration_agent = RepositoryMigrationAgent()
+            migration_result = migration_agent.migrate_repository(
+                analysis_dir=analysis_dir,
+                target_language=target_language,
+                output_dir=output_dir
+            )
+            if migration_result["success"]:
+                console.print(f"✅ Repository migration complete!")
+                console.print(f"📁 Migrated files: {migration_result['migrated_files']}")
+                console.print(f"📊 Migration summary: {migration_result['summary']}")
+            else:
+                console.print(f"❌ Migration failed: {migration_result['error']}", style="red")
+                exit(1)
         else:
-            console.print(f"❌ Migration failed: {migration_result['error']}", style="red")
+            console.print(f"❌ RepositoryMigrationAgent is not available. Migration cannot proceed.", style="red")
             exit(1)
             
     except Exception as e:
