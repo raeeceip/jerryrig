@@ -1,0 +1,18 @@
+{
+  "repository_url": "https://github.com/octocat/Hello-World",
+  "analysis_timestamp": "2025-09-06T00:00:00Z",
+  "summary": "",
+  "language_breakdown": {
+    "primary_language": "Unknown",
+    "languages": []
+  },
+  "file_structure": [],
+  "dependencies": [],
+  "readme_content": "",
+  "license": "Unknown",
+  "contributors": 0,
+  "last_updated": "Unknown",
+  "raw_content": "<!DOCTYPE html>\n<html lang=\"en\">\n    <head>\n        <meta charset=\"UTF-8\">\n        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n        \n        <link rel=\"icon\" type=\"image/x-icon\" href=\"/static/favicons/favicon.ico\">\n        <link rel=\"icon\" type=\"image/svg+xml\" href=\"/static/favicons/favicon.svg\">\n        <link rel=\"icon\"\n              type=\"image/png\"\n              href=\"/static/favicons/favicon-64.png\"\n              sizes=\"64x64\">\n        <link rel=\"apple-touch-icon\"\n              type=\"image/png\"\n              href=\"/static/favicons/apple-touch-icon.png\"\n              sizes=\"180x180\">\n        \n        <meta name=\"title\"       content=\"Gitingest\">\n        <meta name=\"description\"\n              content=\"Replace 'hub' with 'ingest' in any GitHub URL for a prompt-friendly text.\">\n        <meta name=\"keywords\"\n              content=\"Gitingest, AI tools, LLM integration, Ingest, Digest, Context, Prompt, Git workflow, codebase extraction, Git repository, Git au...",
+  "status": "success",
+  "file_count": 420
+}

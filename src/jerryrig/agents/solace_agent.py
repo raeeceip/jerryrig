@@ -6,6 +6,12 @@ from typing import Dict, List, Optional, Any
 import httpx
 from dataclasses import dataclass
 
+try:
+    from solace_agent_mesh.agent.sac.app import SamAgentApp, SamAgentComponent
+    SAM_AVAILABLE = True
+except ImportError:
+    SAM_AVAILABLE = False
+
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -28,17 +34,34 @@ class SolaceAgent:
         self.provider = provider
         self.base_url = base_url or self._get_default_base_url()
         self.client = httpx.Client(timeout=30.0)
+        self.sam_agent = None
         
-        # Detect if this is a Solace JWT token
-        if self.api_key and self.api_key.startswith("eyJ"):
+        # Initialize SAM Agent if available and we have a Solace JWT
+        if SAM_AVAILABLE and self.api_key and self.api_key.startswith("eyJ"):
             self.provider = "solace_sam"
-            self.base_url = "https://api.solace.cloud"
+            self._init_sam_agent()
             logger.info("Using Solace Agent Mesh (SAM) for AI operations")
+        else:
+            # Detect if this is a Solace JWT token for fallback API calls
+            if self.api_key and self.api_key.startswith("eyJ"):
+                self.provider = "solace_sam_api"
+                self.base_url = "https://api.solace.cloud"
+                logger.info("Using Solace API fallback for AI operations")
         
         if not self.api_key:
             logger.warning("No API key provided. Using mock responses.")
         else:
             logger.info(f"Using AI provider: {self._detect_provider()}")
+            
+    def _init_sam_agent(self):
+        """Initialize the SAM agent component."""
+        try:
+            # This would typically be configured based on your SAM setup
+            # For now, we'll prepare the structure for when we have a proper SAM configuration
+            logger.info("SAM Agent Mesh available - ready for agent-based migration")
+            # self.sam_agent = SamAgentComponent(...)  # Would be configured with proper YAML
+        except Exception as e:
+            logger.warning(f"Could not initialize SAM agent: {e}. Falling back to API calls.")
             
     def _get_default_base_url(self) -> str:
         """Get default base URL based on available API keys."""
@@ -55,8 +78,10 @@ class SolaceAgent:
         """Detect which AI provider to use based on API key format."""
         if not self.api_key:
             return "mock"
-        elif self.api_key.startswith("eyJ"):
+        elif self.api_key.startswith("eyJ") and SAM_AVAILABLE:
             return "solace_sam"
+        elif self.api_key.startswith("eyJ"):
+            return "solace_sam_api"
         elif self.api_key.startswith("sk-"):
             return "openai"
         elif self.api_key.startswith("sk-ant-"):
@@ -83,7 +108,9 @@ class SolaceAgent:
         try:
             provider = self._detect_provider()
             
-            if provider == "solace_sam":
+            if provider == "solace_sam" and self.sam_agent:
+                return self._sam_agent_migration(source_code, source_language, target_language)
+            elif provider == "solace_sam" or provider == "solace_sam_api":
                 return self._solace_sam_migration(source_code, source_language, target_language)
             elif provider == "openai":
                 return self._openai_migration(source_code, source_language, target_language)
@@ -323,6 +350,30 @@ class SolaceAgent:
             "suggestions": []
         }
         
+    def _sam_agent_migration(self, source_code: str, source_language: str, target_language: str) -> Dict[str, Any]:
+        """Use SAM Agent component for code migration."""
+        logger.info("Using SAM Agent component for migration")
+        
+        # This would be the proper SAM agent invocation
+        # For now, we'll simulate it until we have proper SAM configuration
+        try:
+            # In a full SAM implementation, this would send a message to the agent
+            # and receive the response through the event mesh
+            # agent_request = {
+            #     "task": "code_migration",
+            #     "source_code": source_code,
+            #     "source_language": source_language,
+            #     "target_language": target_language
+            # }
+            # response = self.sam_agent.process(agent_request)
+            
+            # For now, fall back to enhanced mock
+            return self._enhanced_solace_mock(source_code, source_language, target_language)
+            
+        except Exception as e:
+            logger.error(f"Error using SAM agent: {e}")
+            return self._enhanced_solace_mock(source_code, source_language, target_language)
+            
     def _solace_sam_migration(self, source_code: str, source_language: str, target_language: str) -> Dict[str, Any]:
         """Use Solace Agent Mesh for code migration."""
         # For now, we'll use the Solace API directly to interact with agents
