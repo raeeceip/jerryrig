@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jerryrig"
+version = "0.1.0"
+description = "A web scraper and code migrator that converts open source repositories between programming languages using AI agents"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "JerryRig Team"}
+]
+keywords = ["web-scraping", "code-migration", "ai", "repository-analysis", "gitingest"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "selenium>=4.15.0",
+    "aiohttp>=3.9.0",
+    "click>=8.1.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.5.0",
+    "rich>=13.7.0",
+    "httpx>=0.25.0",
+    "lxml>=4.9.0",
+    "GitPython>=3.1.40",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.11.0",
+    "isort>=5.12.0",
+    "flake8>=6.1.0",
+    "mypy>=1.7.0",
+    "pre-commit>=3.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jerryrig-team/jerryrig"
+Repository = "https://github.com/jerryrig-team/jerryrig"
+Documentation = "https://jerryrig.readthedocs.io"
+"Bug Tracker" = "https://github.com/jerryrig-team/jerryrig/issues"
+
+[project.scripts]
+jerryrig = "jerryrig.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

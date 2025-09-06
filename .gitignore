@@ -1,0 +1,12 @@
+.venv/
+.idea/
+__pycache__/    
+*.pyc
+.DS_Store   
+
+.env
+.github/
+/tests/
+migrated_output
+.vscode/
+jerryrig.egg-info/
