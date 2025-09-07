@@ -1,0 +1,49 @@
+# SAM Configuration for JerryRig
+# Event-driven code migration using Solace Agent Mesh
+
+# Event Broker Configuration
+event_broker:
+  type: "local"
+  host: "localhost" 
+  port: 55555
+
+# LLM Service Configuration  
+llm_service:
+  endpoint: "openai"
+  api_key: "${OPENAI_API_KEY}"
+  planning_model_name: "gpt-4"
+  general_model_name: "gpt-3.5-turbo"
+  temperature: 0.1
+
+# Orchestrator Agent
+orchestrator:
+  enabled: true
+  agent_id: "orchestrator"
+  max_concurrent_tasks: 5
+
+# Gateway Configuration
+gateways:
+  web_ui:
+    enabled: true
+    port: 8000
+    type: "web"
+  rest_api:
+    enabled: true  
+    port: 8001
+    type: "rest"
+
+# Custom Agents
+agents:
+  jerryrig_migrator:
+    enabled: true
+    agent_id: "jerryrig-code-migrator"
+    description: "AI-powered code migration agent"
+    tools:
+      - "migrate_code"
+      - "analyze_repository" 
+      - "generate_migration_plan"
+
+# Logging
+logging:
+  level: "INFO"
+  format: "json"

@@ -7,8 +7,9 @@ import httpx
 from dataclasses import dataclass
 
 try:
-    from solace_agent_mesh.agent.sac.app import SamAgentApp, SamAgentComponent
-    SAM_AVAILABLE = True
+    # SAM integration will be configured through YAML and sam init
+    # For now, we'll prepare the structure for proper SAM integration
+    SAM_AVAILABLE = False  # Will be True when properly configured
 except ImportError:
     SAM_AVAILABLE = False
 
@@ -45,7 +46,7 @@ class SolaceAgent:
             # Detect if this is a Solace JWT token for fallback API calls
             if self.api_key and self.api_key.startswith("eyJ"):
                 self.provider = "solace_sam_api"
-                self.base_url = "https://api.solace.cloud"
+                self.base_url = base_url or os.getenv("SOLACE_BASE_URL", "https://api.solace.dev")
                 logger.info("Using Solace API fallback for AI operations")
         
         if not self.api_key:
@@ -67,7 +68,7 @@ class SolaceAgent:
         """Get default base URL based on available API keys."""
         solace_key = os.getenv("SOLACE_API_KEY")
         if solace_key and solace_key.startswith("eyJ"):
-            return "https://api.solace.cloud"
+            return os.getenv("SOLACE_BASE_URL", "https://api.solace.dev")
         elif os.getenv("OPENAI_API_KEY"):
             return "https://api.openai.com/v1"
         elif os.getenv("ANTHROPIC_API_KEY"):
@@ -445,52 +446,67 @@ class SolaceAgent:
         
     def _python_to_js_enhanced(self, python_code: str) -> str:
         """Enhanced Python to JavaScript conversion."""
-        js_code = python_code
-        
-        # Function definitions
-        js_code = js_code.replace("def ", "function ")
-        js_code = js_code.replace(":", " {")
-        
-        # Boolean values
-        js_code = js_code.replace("True", "true")
-        js_code = js_code.replace("False", "false")
-        js_code = js_code.replace("None", "null")
-        
-        # Print statements
-        js_code = js_code.replace("print(", "console.log(")
-        
-        # String formatting (basic)
-        import re
-        js_code = re.sub(r'f"([^"]*)"', r'`\1`', js_code)
-        js_code = js_code.replace("{", "${")
-        
-        # Add proper JS structure
-        lines = js_code.split('\n')
-        processed_lines = []
+        lines = python_code.strip().split('\n')
+        js_lines = []
         indent_level = 0
         
         for line in lines:
             stripped = line.strip()
-            if stripped:
-                if 'function ' in stripped:
-                    processed_lines.append(' ' * (indent_level * 4) + stripped)
-                    indent_level += 1
-                elif stripped == '}':
-                    indent_level = max(0, indent_level - 1)
-                    processed_lines.append(' ' * (indent_level * 4) + '}')
-                else:
-                    processed_lines.append(' ' * (indent_level * 4) + stripped)
-            else:
-                processed_lines.append('')
+            if not stripped:
+                js_lines.append('')
+                continue
+                
+            # Function definitions
+            if stripped.startswith('def '):
+                func_name = stripped.split('(')[0].replace('def ', '')
+                params = stripped.split('(')[1].split(')')[0] if '(' in stripped else ''
+                js_lines.append(f"function {func_name}({params}) {{")
+                indent_level += 1
+                continue
+            
+            # Main block
+            if stripped.startswith('if __name__'):
+                js_lines.append("// Main execution")
+                js_lines.append("(function main() {")
+                indent_level += 1
+                continue
+            
+            # Regular statements
+            js_line = stripped
+            
+            # Boolean values
+            js_line = js_line.replace("True", "true")
+            js_line = js_line.replace("False", "false") 
+            js_line = js_line.replace("None", "null")
+            
+            # Print statements
+            js_line = js_line.replace("print(", "console.log(")
+            
+            # F-strings - simple conversion
+            import re
+            js_line = re.sub(r'f"([^"]*)"', lambda m: f'`{m.group(1)}`', js_line)
+            js_line = re.sub(r'\{([^}]+)\}', r'${\1}', js_line)
+            
+            # Return statements
+            if js_line.strip().startswith('return'):
+                js_lines.append('    ' * indent_level + js_line)
+                continue
+                
+            # Variable assignments and function calls
+            js_lines.append('    ' * indent_level + js_line)
         
-        # Add closing braces for functions
-        function_count = js_code.count('function ')
-        brace_count = js_code.count('}')
-        if function_count > brace_count:
-            for _ in range(function_count - brace_count):
-                processed_lines.append('}')
+        # Close any open braces
+        while indent_level > 0:
+            indent_level -= 1
+            js_lines.append('    ' * indent_level + '}')
+            
+        # Add execution call for main
+        if 'if __name__' in python_code:
+            js_lines.append('')
+            js_lines.append('// Execute main function')
+            js_lines.append('main();')
         
-        return "// Enhanced migration from Python to JavaScript\n" + '\n'.join(processed_lines)
+        return '\n'.join(js_lines)
         
     def _js_to_python_enhanced(self, js_code: str) -> str:
         """Enhanced JavaScript to Python conversion."""

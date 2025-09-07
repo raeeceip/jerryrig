@@ -1,0 +1,64 @@
+# JerryRig Code Migration Agent Configuration
+# This agent handles cross-language code migration using AI
+
+agent_id: "jerryrig-code-migrator"
+name: "JerryRig Code Migrator"  
+description: "AI-powered agent for migrating code between programming languages"
+version: "1.0.0"
+
+# Agent capabilities and tools
+tools:
+  - name: "migrate_code"
+    description: "Migrate source code from one language to another"
+    parameters:
+      source_code:
+        type: "string"
+        description: "The source code to migrate"
+        required: true
+      source_language:
+        type: "string" 
+        description: "Programming language of the source code"
+        required: true
+      target_language:
+        type: "string"
+        description: "Target programming language for migration"
+        required: true
+      
+  - name: "analyze_repository"
+    description: "Analyze a code repository structure and dependencies"
+    parameters:
+      repository_url:
+        type: "string"
+        description: "URL or path to the repository"
+        required: true
+        
+  - name: "generate_migration_plan"
+    description: "Create a detailed migration plan for a codebase"
+    parameters:
+      source_files:
+        type: "array"
+        description: "List of source files to migrate"
+        required: true
+      target_language:
+        type: "string" 
+        description: "Target programming language"
+        required: true
+
+# LLM Configuration
+llm:
+  planning_model: "${LLM_SERVICE_PLANNING_MODEL_NAME}"
+  general_model: "${LLM_SERVICE_GENERAL_MODEL_NAME}"
+  temperature: 0.1
+  max_tokens: 4000
+
+# Agent behavior
+behavior:
+  max_iterations: 10
+  timeout: 300
+  retry_attempts: 3
+
+# Dependencies and imports
+imports:
+  - "jerryrig.core.migrator"
+  - "jerryrig.core.analyzer" 
+  - "jerryrig.agents.solace_agent"

@@ -7,7 +7,7 @@ from pathlib import Path
 from dataclasses import dataclass
 
 from ..agents.solace_agent import SolaceAgent
-from ..core.analyzer import CodeAnalyzer, RepositoryAnalysis
+from ..core.analyzer import RepositoryParser, GitIngestAnalysis
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -40,13 +40,28 @@ class MigrationResult:
 class CodeMigrator:
     """Migrates code between programming languages using AI agents."""
     
+    # Language extension mapping
+    LANGUAGE_EXTENSIONS = {
+        '.py': 'python',
+        '.js': 'javascript',
+        '.ts': 'typescript',
+        '.java': 'java',
+        '.cpp': 'cpp',
+        '.c': 'c',
+        '.cs': 'csharp',
+        '.go': 'go',
+        '.rs': 'rust',
+        '.rb': 'ruby',
+        '.php': 'php'
+    }
+    
     SUPPORTED_LANGUAGES = {
         'python', 'javascript', 'typescript', 'java', 'cpp', 'c', 
         'csharp', 'go', 'rust', 'ruby', 'php', 'swift', 'kotlin'
     }
     
     def __init__(self):
-        self.analyzer = CodeAnalyzer()
+        self.analyzer = RepositoryParser()
         self.solace_agent = SolaceAgent()
         
     def migrate_code(self, source_path: str, target_language: str, output_dir: str = "./migrated") -> str:
@@ -193,7 +208,7 @@ class CodeMigrator:
                 source_code = f.read()
                 
             # Determine source language
-            source_language = self.analyzer.LANGUAGE_EXTENSIONS.get(source_file.suffix.lower(), 'unknown')
+            source_language = self.LANGUAGE_EXTENSIONS.get(source_file.suffix.lower(), 'unknown')
             
             # Use Solace agent to perform migration
             migration_result = self.solace_agent.migrate_code(
@@ -282,3 +297,104 @@ class CodeMigrator:
             json.dump(report, f, indent=2)
             
         logger.info(f"Migration report saved to: {report_path}")
+        
+    async def migrate_code_async(self, source_code: str, source_language: str, target_language: str) -> Dict[str, Any]:
+        """
+        Async version of migrate_code for SAM integration - migrates just the code string
+        """
+        import asyncio
+        
+        def _migrate_code_string():
+            try:
+                logger.info(f"Migrating code from {source_language} to {target_language}")
+                
+                if target_language.lower() not in self.SUPPORTED_LANGUAGES:
+                    raise ValueError(f"Unsupported target language: {target_language}")
+                
+                # Use SolaceAgent for AI-powered migration
+                migration_result = self.solace_agent.migrate_code(
+                    source_code=source_code,
+                    source_language=source_language,
+                    target_language=target_language
+                )
+                
+                return {
+                    'success': True,
+                    'migrated_code': migration_result['migrated_code'],
+                    'source_language': source_language,
+                    'target_language': target_language,
+                    'confidence': migration_result.get('confidence', 0.8),
+                    'warnings': migration_result.get('warnings', []),
+                    'errors': migration_result.get('errors', [])
+                }
+                
+            except Exception as e:
+                logger.error(f"Migration failed: {str(e)}")
+                return {
+                    'success': False,
+                    'error': str(e),
+                    'migrated_code': '',
+                    'confidence': 0.0
+                }
+        
+        return await asyncio.to_thread(_migrate_code_string)
+    
+    async def generate_migration_plan_async(self, source_files: List[str], target_language: str) -> Dict[str, Any]:
+        """
+        Generate a migration plan for multiple source files (async version for SAM)
+        """
+        import asyncio
+        
+        def _generate_plan():
+            try:
+                if target_language.lower() not in self.SUPPORTED_LANGUAGES:
+                    raise ValueError(f"Unsupported target language: {target_language}")
+                
+                plan = {
+                    'source_files': source_files,
+                    'target_language': target_language,
+                    'migration_steps': [],
+                    'estimated_time_minutes': 0,
+                    'complexity': 'medium',
+                    'total_files': len(source_files)
+                }
+                
+                for file_path in source_files:
+                    # Determine source language from file extension
+                    file_ext = Path(file_path).suffix.lower()
+                    source_lang = self.LANGUAGE_EXTENSIONS.get(file_ext, 'unknown')
+                    
+                    # Generate target filename
+                    target_ext = self._get_file_extension(target_language)
+                    target_file = str(Path(file_path).with_suffix(target_ext))
+                    
+                    step = {
+                        'source_file': file_path,
+                        'target_file': target_file,
+                        'source_language': source_lang,
+                        'target_language': target_language,
+                        'action': 'migrate',
+                        'estimated_time_minutes': 5,
+                        'complexity': 'medium'
+                    }
+                    plan['migration_steps'].append(step)
+                    plan['estimated_time_minutes'] += 5
+                
+                # Determine overall complexity
+                if len(source_files) > 20:
+                    plan['complexity'] = 'high'
+                elif len(source_files) < 5:
+                    plan['complexity'] = 'low'
+                
+                return plan
+                
+            except Exception as e:
+                logger.error(f"Plan generation failed: {str(e)}")
+                return {
+                    'error': str(e),
+                    'source_files': source_files,
+                    'target_language': target_language,
+                    'migration_steps': []
+                }
+        
+        return await asyncio.to_thread(_generate_plan)

@@ -9,13 +9,13 @@ __author__ = "JerryRig Team"
 __email__ = "team@jerryrig.dev"
 
 from .core.scraper import RepositoryScraper
-from .core.analyzer import CodeAnalyzer
+from .core.analyzer import RepositoryParser
 from .core.migrator import CodeMigrator
 from .agents.solace_agent import SolaceAgent
 
 __all__ = [
     "RepositoryScraper",
-    "CodeAnalyzer", 
+    "RepositoryParser", 
     "CodeMigrator",
     "SolaceAgent",
 ]

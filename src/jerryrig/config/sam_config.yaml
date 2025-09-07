@@ -1,0 +1,290 @@
+# Solace Agent Mesh Configuration for JerryRig
+# This configuration sets up an agent mesh for distributed repository processing
+
+name: "jerryrig-repository-mesh"
+version: "1.0.0"
+description: "Agent mesh for processing large repositories with code migration capabilities"
+
+# Event mesh configuration
+event_mesh:
+  broker_url: "tcp://localhost:55554"
+  username: "default"
+  password: "default"
+  vpn: "default"
+  client_name: "jerryrig-mesh"
+
+# Agent definitions
+agents:
+  # Main orchestrator agent
+  repository_orchestrator:
+    type: "orchestrator"
+    description: "Coordinates repository analysis and migration workflow"
+    topics:
+      subscribe:
+        - "jerryrig/repository/analyze/request"
+        - "jerryrig/repository/migrate/request"
+      publish:
+        - "jerryrig/repository/analyze/response"
+        - "jerryrig/repository/migrate/response"
+        - "jerryrig/workflow/chunk/request"
+        - "jerryrig/workflow/aggregate/request"
+    capabilities:
+      - "repository_analysis"
+      - "workflow_orchestration"
+      - "progress_tracking"
+
+  # Repository chunking agent
+  repository_chunker:
+    type: "processor"
+    description: "Breaks large repositories into manageable chunks for processing"
+    topics:
+      subscribe:
+        - "jerryrig/workflow/chunk/request"
+      publish:
+        - "jerryrig/workflow/chunk/response"
+        - "jerryrig/code/analyze/request"
+    capabilities:
+      - "file_chunking"
+      - "dependency_analysis"
+      - "structure_mapping"
+    config:
+      max_chunk_size: 50  # files per chunk
+      max_file_size: 1048576  # 1MB per file
+      supported_languages:
+        - "python"
+        - "javascript"
+        - "typescript"
+        - "java"
+        - "cpp"
+        - "go"
+        - "rust"
+
+  # Code analysis agent
+  code_analyzer:
+    type: "processor" 
+    description: "Analyzes code structure and dependencies within chunks"
+    topics:
+      subscribe:
+        - "jerryrig/code/analyze/request"
+      publish:
+        - "jerryrig/code/analyze/response"
+        - "jerryrig/code/migrate/request"
+    capabilities:
+      - "syntax_analysis"
+      - "dependency_mapping"
+      - "complexity_assessment"
+      - "migration_planning"
+
+  # Code migration agent
+  code_migrator:
+    type: "processor"
+    description: "Performs actual code migration using AI models"
+    topics:
+      subscribe:
+        - "jerryrig/code/migrate/request"
+      publish:
+        - "jerryrig/code/migrate/response"
+    capabilities:
+      - "language_translation"
+      - "syntax_conversion"
+      - "idiom_adaptation"
+      - "error_correction"
+    config:
+      ai_providers:
+        - name: "solace_ai"
+          priority: 1
+          fallback: true
+        - name: "openai"
+          priority: 2
+          api_key_env: "OPENAI_API_KEY"
+        - name: "anthropic"
+          priority: 3
+          api_key_env: "ANTHROPIC_API_KEY"
+
+  # Result aggregator agent
+  result_aggregator:
+    type: "aggregator"
+    description: "Aggregates migration results and builds final repository structure"
+    topics:
+      subscribe:
+        - "jerryrig/workflow/aggregate/request"
+        - "jerryrig/code/migrate/response"
+      publish:
+        - "jerryrig/workflow/aggregate/response"
+        - "jerryrig/repository/migrate/complete"
+    capabilities:
+      - "result_aggregation"
+      - "structure_reconstruction"
+      - "quality_validation"
+      - "report_generation"
+
+  # Progress tracker agent
+  progress_tracker:
+    type: "monitor"
+    description: "Tracks progress of repository processing and provides status updates"
+    topics:
+      subscribe:
+        - "jerryrig/+/+/+"  # Subscribe to all JerryRig events
+      publish:
+        - "jerryrig/progress/update"
+        - "jerryrig/progress/complete"
+        - "jerryrig/progress/error"
+    capabilities:
+      - "progress_monitoring"
+      - "status_reporting"
+      - "error_tracking"
+      - "performance_metrics"
+
+# Workflow definitions
+workflows:
+  repository_migration:
+    description: "Complete repository migration workflow"
+    trigger: "jerryrig/repository/migrate/request"
+    steps:
+      - agent: "repository_orchestrator"
+        action: "validate_request"
+      - agent: "repository_chunker"
+        action: "chunk_repository"
+        parallel: false
+      - agent: "code_analyzer"
+        action: "analyze_chunks"
+        parallel: true
+        max_concurrent: 5
+      - agent: "code_migrator"
+        action: "migrate_chunks"
+        parallel: true
+        max_concurrent: 3
+      - agent: "result_aggregator"
+        action: "aggregate_results"
+        parallel: false
+      - agent: "repository_orchestrator"
+        action: "finalize_migration"
+
+  repository_analysis:
+    description: "Repository analysis workflow"
+    trigger: "jerryrig/repository/analyze/request"
+    steps:
+      - agent: "repository_orchestrator"
+        action: "validate_request"
+      - agent: "repository_chunker"
+        action: "chunk_repository"
+      - agent: "code_analyzer"
+        action: "analyze_chunks"
+        parallel: true
+        max_concurrent: 5
+      - agent: "result_aggregator"
+        action: "aggregate_analysis"
+
+# Message schemas
+message_schemas:
+  repository_request:
+    type: "object"
+    properties:
+      repository_url:
+        type: "string"
+        description: "GitHub repository URL"
+      target_language:
+        type: "string" 
+        description: "Target programming language"
+      source_language:
+        type: "string"
+        description: "Source programming language (optional, auto-detected)"
+      options:
+        type: "object"
+        properties:
+          preserve_structure:
+            type: "boolean"
+            default: true
+          include_tests:
+            type: "boolean"
+            default: true
+          include_docs:
+            type: "boolean"
+            default: false
+          chunk_size:
+            type: "integer"
+            default: 50
+      correlation_id:
+        type: "string"
+        description: "Unique request identifier"
+      user_id:
+        type: "string"
+        description: "User identifier"
+
+  chunk_request:
+    type: "object"
+    properties:
+      repository_data:
+        type: "object"
+        description: "Repository analysis data"
+      chunk_config:
+        type: "object"
+        description: "Chunking configuration"
+      correlation_id:
+        type: "string"
+
+  migration_response:
+    type: "object"
+    properties:
+      success:
+        type: "boolean"
+      migrated_files:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            source_path:
+              type: "string"
+            target_path:
+              type: "string"
+            confidence:
+              type: "number"
+            warnings:
+              type: "array"
+              items:
+                type: "string"
+      errors:
+        type: "array"
+        items:
+          type: "string"
+      summary:
+        type: "object"
+        properties:
+          total_files:
+            type: "integer"
+          successful_migrations:
+            type: "integer"
+          failed_migrations:
+            type: "integer"
+          processing_time:
+            type: "number"
+      correlation_id:
+        type: "string"
+
+# Monitoring and logging
+monitoring:
+  metrics:
+    enabled: true
+    endpoint: "http://localhost:9090/metrics"
+    interval: 30
+  logging:
+    level: "INFO"
+    format: "json"
+    output: "stdout"
+  health_checks:
+    enabled: true
+    interval: 60
+    timeout: 30
+
+# Security configuration
+security:
+  authentication:
+    enabled: false  # For development
+    # type: "jwt"
+    # secret_key_env: "SAM_JWT_SECRET"
+  authorization:
+    enabled: false  # For development
+    # default_role: "user"
+  encryption:
+    in_transit: false  # For development
+    at_rest: false     # For development
