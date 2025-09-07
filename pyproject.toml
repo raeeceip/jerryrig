@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jerryrig"
 version = "0.1.0"
-description = "A web scraper and code migrator that converts open source repositories between programming languages using AI agents"
+description = "A distributed code migration platform powered by Solace Agent Mesh for converting repositories between programming languages using AI agents"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
     {name = "JerryRig Team"}
 ]
-keywords = ["web-scraping", "code-migration", "ai", "repository-analysis", "gitingest"]
+keywords = ["web-scraping", "code-migration", "ai", "repository-analysis", "solace-agent-mesh", "event-driven", "distributed-systems", "llm", "code-conversion"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -37,6 +37,15 @@ dependencies = [
     "lxml>=4.9.0",
     "GitPython>=3.1.40",
     "playwright>=1.40.0",
+    "flask>=3.0.0",
+    "websockets>=12.0",
+    "pyyaml>=6.0.1",
+    "solace-agent-mesh>=1.0.0",
+    "openai>=1.0.0",
+    "anthropic>=0.18.0",
+    "jinja2>=3.1.0",
+    "asyncio-mqtt>=0.16.0",
+    "psutil>=5.9.0",
 ]
 
 [project.optional-dependencies]
@@ -48,13 +57,27 @@ dev = [
     "flake8>=6.1.0",
     "mypy>=1.7.0",
     "pre-commit>=3.5.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+]
+mesh = [
+    "solace-agent-mesh[dev]>=1.0.0",
+    "docker>=6.1.0",
+    "kubernetes>=28.1.0",
+]
+cloud = [
+    "boto3>=1.34.0",
+    "azure-identity>=1.15.0",
+    "google-cloud-core>=2.4.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/jerryrig-team/jerryrig"
-Repository = "https://github.com/jerryrig-team/jerryrig"
-Documentation = "https://jerryrig.readthedocs.io"
-"Bug Tracker" = "https://github.com/jerryrig-team/jerryrig/issues"
+Homepage = "https://github.com/raeeceip/jerryrig"
+Repository = "https://github.com/raeeceip/jerryrig"
+Documentation = "https://github.com/raeeceip/jerryrig/blob/master/README.md"
+"Bug Tracker" = "https://github.com/raeeceip/jerryrig/issues"
+"Solace Cloud" = "https://console.solace.cloud"
+"Agent Mesh Docs" = "https://docs.solace.dev/agent-mesh"
 
 [project.scripts]
 jerryrig = "jerryrig.cli:main"
