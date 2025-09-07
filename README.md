@@ -1,51 +1,59 @@
-# JerryRig 🔧
+# JerryRig �️
 
-> A powerful web scraper and code migrator that converts open source repositories between programming languages using AI agents
+> A distributed code migration platform powered by Solace Agent Mesh for converting repositories between programming languages using AI agents
 
-JerryRig combines the power of web scraping with AI-driven code migration to help developers quickly convert repositories from one programming language to another. It uses gitingest for repository analysis and Solace agents for intelligent code translation.
+JerryRig is an event-driven, distributed system that uses Solace Agent Mesh to orchestrate AI-powered code migration across multiple programming languages. It features a modern web interface and real-time processing capabilities.
 
 ## 🚀 Features
 
-- **Repository Scraping**: Automatically analyze open source repositories using gitingest
-- **Multi-Language Support**: Convert between Python, JavaScript, TypeScript, Java, C++, Go, Rust, and more
-- **AI-Powered Migration**: Uses Solace agents for intelligent code translation
-- **Structure Preservation**: Maintains project architecture and patterns during migration
-- **Batch Processing**: Process multiple repositories concurrently
-- **Migration Reports**: Detailed reports with confidence scores and suggestions
+- **Distributed Agent Mesh**: Event-driven architecture using Solace Agent Mesh
+- **Real-time Web Interface**: Modern, responsive UI with live migration status
+- **Multi-Language Support**: Convert between Python, JavaScript, TypeScript, Java, Go, Rust, C++, C#
+- **Cloud-Ready**: Deploy locally or on cloud platforms with Solace Cloud
+- **Scalable Processing**: Horizontal scaling with agent-based architecture
+- **Live Status Updates**: Real-time progress tracking and notifications
 
 ## 🏗️ Architecture
 
 ```
-JerryRig/
+JerryRig Agent Mesh/
 ├── src/jerryrig/
-│   ├── core/           # Core functionality
-│   │   ├── scraper.py  # Repository scraping with gitingest
-│   │   ├── analyzer.py # Code structure analysis
-│   │   └── migrator.py # Code migration engine
-│   ├── agents/         # AI agent interfaces
-│   │   └── solace_agent.py # Solace AI agent integration
-│   ├── utils/          # Utilities and helpers
-│   │   └── logger.py   # Logging configuration
-│   ├── cli.py          # Command line interface
-│   └── __init__.py     # Package initialization
-├── tests/              # Test suite
-├── examples/           # Usage examples
-└── docs/               # Documentation
+│   ├── core/                    # Core mesh components
+│   │   ├── mesh_launcher.py     # Mesh lifecycle management
+│   │   ├── mesh_client.py       # REST API client
+│   │   ├── mesh_initializer.py  # Project scaffolding
+│   │   ├── migrator.py          # Code migration engine
+│   │   └── analyzer.py          # Code analysis
+│   ├── agents/                  # Event mesh agents
+│   │   └── event_mesh_agent.py  # Agent coordinator
+│   ├── cli.py                   # Command line interface
+│   └── utils/                   # Utilities
+├── sam_project/                 # Solace Agent Mesh project
+│   ├── config.yaml             # Mesh configuration
+│   ├── agents/                 # Agent modules
+│   │   ├── repository_input.py      # Input handling
+│   │   ├── repository_orchestrator.py # Workflow coordination
+│   │   ├── repository_chunker.py     # Code chunking
+│   │   ├── code_analyzer.py          # Analysis agent
+│   │   ├── code_migrator.py          # Migration agent
+│   │   └── result_aggregator.py     # Result assembly
+│   └── logs/                   # Agent logs
+└── output/                     # Migration results
 ```
 
-## 🛠️ Installation
+## 🛠️ Installation & Setup
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.11 or higher
 - Git
-- Virtual environment (recommended)
+- Solace API key (get from [Solace Cloud](https://console.solace.cloud))
 
 ### Quick Setup
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/jerryrig-team/jerryrig.git
+   git clone https://github.com/raeeceip/jerryrig.git
    cd jerryrig
    ```
 
@@ -58,92 +66,247 @@ JerryRig/
    source .venv/bin/activate
    ```
 
-3. **Install dependencies:**
+3. **Install JerryRig:**
    ```bash
    pip install -e .
    ```
 
-4. **Set up environment variables (optional):**
+4. **Configure environment variables:**
    ```bash
-   cp .env.example .env
-   # Edit .env with your API keys
+   # Copy the example .env file
+   cp .env .env.local
+   
+   # Edit .env.local with your API keys:
+   # SOLACE_API_KEY=your_solace_api_key_here
+   # OPENAI_API_KEY=your_openai_api_key_here
    ```
+
+### Environment Configuration
+
+Create or update your `.env` file:
+
+```env
+# Solace Cloud Configuration
+SOLACE_API_KEY=your_solace_api_key_from_console_solace_cloud
+SOLACE_BASE_URL=https://api.solace.dev
+
+# LLM Provider (OpenAI recommended)
+OPENAI_API_KEY=your_openai_api_key
+
+# SAM Configuration
+LLM_SERVICE_ENDPOINT=openai
+LLM_SERVICE_API_KEY=${OPENAI_API_KEY}
+LLM_SERVICE_PLANNING_MODEL_NAME=gpt-4
+LLM_SERVICE_GENERAL_MODEL_NAME=gpt-3.5-turbo
+
+# Logging
+LOG_LEVEL=INFO
+LOG_FILE=jerryrig.log
+```
 
 ## 🎯 Quick Start
 
-### Command Line Usage
+### 1. Initialize Agent Mesh Project (Optional)
 
 ```bash
-# Scrape a repository
-jerryrig scrape https://github.com/user/repo --output-dir ./scraped
-
-# Migrate code to another language
-jerryrig migrate ./source_code python --output-dir ./migrated
-
-# Full pipeline: scrape and migrate
-jerryrig full-migration https://github.com/user/repo javascript --output-dir ./output
+# Create a new mesh project (if you want to customize)
+jerryrig init-mesh --project-name my-migration-mesh
 ```
 
-### Python API Usage
+### 2. Start the Agent Mesh
 
-```python
-from jerryrig import RepositoryScraper, CodeAnalyzer, CodeMigrator
+```bash
+# Start the distributed agent mesh with web UI
+jerryrig start-mesh -c ./sam_project/config.yaml
 
-# Initialize components
-scraper = RepositoryScraper()
-analyzer = CodeAnalyzer()
-migrator = CodeMigrator()
-
-# Scrape repository
-repo_data = scraper.scrape_repository("https://github.com/user/repo")
-
-# Analyze code structure
-analysis = analyzer.analyze_repository("./repo_path")
-
-# Migrate to target language
-result = migrator.migrate_code("./source", "python", "./output")
+# The web interface will be available at: http://localhost:8000
 ```
 
-## 🔧 Configuration
+### 3. Submit Migration Requests
 
-### Environment Variables
+**Via Web Interface:**
+- Open http://localhost:8000 in your browser
+- Fill in repository URL and target language
+- Click "Start Migration" and watch real-time progress
 
-Create a `.env` file in the project root:
+**Via CLI:**
+```bash
+# Submit migration request to the running mesh
+jerryrig mesh-migration https://github.com/octocat/Hello-World python
 
-```env
-# Solace AI API Configuration
-SOLACE_API_KEY=your_solace_api_key_here
-SOLACE_BASE_URL=https://api.solace.dev
-
-# Logging Configuration
-LOG_LEVEL=INFO
-LOG_FILE=jerryrig.log
-
-# Scraping Configuration
-GITINGEST_BASE_URL=https://gitingest.com
-REQUEST_TIMEOUT=30
+# Specify custom output directory
+jerryrig mesh-migration https://github.com/user/repo javascript -o ./my-output
 ```
 
-### Supported Languages
+### 4. Monitor Progress
 
-**Source Languages:**
-- Python (.py)
-- JavaScript (.js)
-- TypeScript (.ts)
-- Java (.java)
-- C++ (.cpp)
-- C (.c)
-- Go (.go)
-- Rust (.rs)
-- Ruby (.rb)
-- PHP (.php)
+The web interface provides:
+- ✅ **Real-time status updates** - Live progress tracking
+- 📊 **Migration statistics** - Success rates, processing times
+- 📜 **Migration history** - Complete audit trail
+- 🔄 **Agent mesh status** - Active agents and health checks
 
-**Target Languages:**
-- All source languages plus:
-- C# (.cs)
-- Swift (.swift)
-- Kotlin (.kt)
-- Scala (.scala)
+## 🌐 Cloud Deployment
+
+### Docker Deployment
+
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f jerryrig-mesh
+
+# Stop the mesh
+docker-compose down
+```
+
+### Cloud Platforms
+
+**AWS/Azure/GCP:**
+```bash
+# Deploy using the provided Dockerfile
+docker build -t jerryrig-mesh .
+docker run -p 8000:8000 --env-file .env jerryrig-mesh
+```
+
+**Kubernetes:**
+```yaml
+# See k8s-deployment.yaml for full configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jerryrig-mesh
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: jerryrig-mesh
+  template:
+    spec:
+      containers:
+      - name: jerryrig
+        image: jerryrig-mesh:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: SOLACE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jerryrig-secrets
+              key: solace-api-key
+```
+
+## 🔧 CLI Commands
+
+### Mesh Management
+```bash
+# Initialize new mesh project
+jerryrig init-mesh --project-name my-mesh
+
+# Start the agent mesh
+jerryrig start-mesh -c ./sam_project/config.yaml -p 8000
+
+# Submit migration to running mesh
+jerryrig mesh-migration <repo-url> <target-language> [options]
+```
+
+### Direct Migration (Legacy)
+```bash
+# Quick migration without mesh
+jerryrig migrate ./source_code python --output-dir ./output
+
+# Full pipeline
+jerryrig full-migration https://github.com/user/repo javascript
+```
+
+### Repository Analysis
+```bash
+# Analyze repository structure
+jerryrig scrape https://github.com/user/repo --output-dir ./analysis
+```
+
+## 📊 Supported Languages
+
+| Source → Target | Python | JavaScript | TypeScript | Java | Go | Rust | C++ | C# |
+|----------------|--------|------------|------------|------|----|----- |-----|-----|
+| **Python**     | ✅     | ✅         | ✅         | ✅   | ✅ | ✅   | ✅  | ✅  |
+| **JavaScript** | ✅     | ✅         | ✅         | ✅   | ✅ | ✅   | ✅  | ✅  |
+| **TypeScript** | ✅     | ✅         | ✅         | ✅   | ✅ | ✅   | ✅  | ✅  |
+| **Java**       | ✅     | ✅         | ✅         | ✅   | ✅ | ✅   | ✅  | ✅  |
+| **Go**         | ✅     | ✅         | ✅         | ✅   | ✅ | ✅   | ✅  | ✅  |
+| **Rust**       | ✅     | ✅         | ✅         | ✅   | ✅ | ✅   | ✅  | ✅  |
+| **C++**        | ✅     | ✅         | ✅         | ✅   | ✅ | ✅   | ✅  | ✅  |
+| **C#**         | ✅     | ✅         | ✅         | ✅   | ✅ | ✅   | ✅  | ✅  |
+
+## 🧪 Development
+
+### Running Tests
+```bash
+pytest tests/
+```
+
+### Local Development
+```bash
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Start mesh in development mode
+jerryrig start-mesh -c ./sam_project/config.yaml
+
+# Run tests with the mesh running
+pytest tests/test_mesh_integration.py
+```
+
+## 🔗 API Reference
+
+### Web Interface Endpoints
+
+```http
+GET  /                 # Web interface
+GET  /status          # Mesh status
+POST /migrate         # Submit migration request
+GET  /migrations/{id} # Get migration status
+```
+
+### Migration Request Format
+
+```json
+{
+  "repository_url": "https://github.com/user/repo",
+  "target_language": "python",
+  "source_language": "javascript",  // optional
+  "priority": "normal"              // normal, high, urgent
+}
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🔗 Links
+
+- **Solace Cloud Console**: [https://console.solace.cloud](https://console.solace.cloud)
+- **Agent Mesh Docs**: [https://docs.solace.dev/agent-mesh](https://docs.solace.dev/agent-mesh)
+- **Issue Tracker**: [https://github.com/raeeceip/jerryrig/issues](https://github.com/raeeceip/jerryrig/issues)
+
+## 🙏 Acknowledgments
+
+- [Solace Agent Mesh](https://solace.com/products/event-broker/software/agent-mesh/) for distributed event-driven architecture
+- [OpenAI](https://openai.com) for language model capabilities
+- The open source community for continuous inspiration
+
+---
+
+**Built with ❤️ using Solace Agent Mesh**
 
 ## 📖 Examples
 

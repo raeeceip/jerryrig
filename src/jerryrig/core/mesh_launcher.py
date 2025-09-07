@@ -16,6 +16,7 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 import yaml
 import logging
+from dotenv import load_dotenv
 
 from ..utils.logger import get_logger
 
@@ -32,12 +33,36 @@ class MeshLauncher:
         self.processes = []
         self.sam_gateway = None
         self.config = self._load_config()
+        self.environment = self._load_environment()
         self._setup_signal_handlers()
         
         # WebSocket for real-time status updates
         self.status_websocket_thread = None
         self.websocket_server = None
         self.websocket_clients = set()
+    
+    def _load_environment(self) -> Dict[str, Any]:
+        """Load and validate environment variables for Solace Cloud"""
+        # Load environment variables
+        load_dotenv()
+        
+        # Validate required environment variables for Solace Cloud
+        required_vars = ['SOLACE_API_KEY', 'OPENAI_API_KEY']
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        if missing_vars:
+            raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
+        
+        logger.info(f"Loaded environment variables for Solace Cloud: {required_vars}")
+        
+        return {
+            'SOLACE_API_KEY': os.getenv('SOLACE_API_KEY'),
+            'OPENAI_API_KEY': os.getenv('OPENAI_API_KEY'),
+            'SOLACE_BASE_URL': os.getenv('SOLACE_BASE_URL', 'https://api.solace.dev'),
+            'SOLACE_VPN_NAME': os.getenv('SOLACE_VPN_NAME', 'jerryrig-mesh'),
+            'SOLACE_USERNAME': os.getenv('SOLACE_USERNAME', 'jerryrig-user'),
+            'SOLACE_PASSWORD': os.getenv('SOLACE_PASSWORD', ''),
+            'LOG_LEVEL': os.getenv('LOG_LEVEL', 'INFO')
+        }
     
     def _load_config(self) -> Dict[str, Any]:
         """Load SAM configuration"""
