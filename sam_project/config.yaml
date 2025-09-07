@@ -1,5 +1,5 @@
 # Solace Agent Mesh Configuration for JerryRig
-# This creates a distributed agent mesh for code migration
+# This creates a distributed agent mesh for code migration using Solace Cloud
 
 instance_name: "jerryrig-mesh"
 log:
@@ -7,13 +7,11 @@ log:
   log_file_level: "DEBUG"
   log_file: "logs/jerryrig-mesh.log"
 
-# Solace broker configuration
+# Solace Cloud configuration using API key
 solace:
-  broker_type: solace
-  broker_url: ${SOLACE_BROKER_URL:tcp://localhost:55555}
-  broker_username: ${SOLACE_USERNAME:default}
-  broker_password: ${SOLACE_PASSWORD:default}
-  broker_vpn: ${SOLACE_VPN:default}
+  broker_type: solace_cloud
+  api_key: ${SOLACE_API_KEY}
+  base_url: ${SOLACE_BASE_URL:https://api.solace.dev}
 
 shared_config:
   # OpenAI configuration for AI-powered code migration
