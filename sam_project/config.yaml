@@ -1,0 +1,187 @@
+# Solace Agent Mesh Configuration for JerryRig
+# This creates a distributed agent mesh for code migration
+
+instance_name: "jerryrig-mesh"
+log:
+  stdout_log_level: "INFO"
+  log_file_level: "DEBUG"
+  log_file: "logs/jerryrig-mesh.log"
+
+# Solace broker configuration
+solace:
+  broker_type: solace
+  broker_url: ${SOLACE_BROKER_URL:tcp://localhost:55555}
+  broker_username: ${SOLACE_USERNAME:default}
+  broker_password: ${SOLACE_PASSWORD:default}
+  broker_vpn: ${SOLACE_VPN:default}
+
+shared_config:
+  # OpenAI configuration for AI-powered code migration
+  openai:
+    api_key: ${OPENAI_API_KEY}
+    model: "gpt-4"
+    temperature: 0.1
+    max_tokens: 4000
+  
+  # JerryRig specific configuration
+  jerryrig:
+    supported_languages:
+      - python
+      - javascript
+      - typescript
+      - java
+      - cpp
+      - go
+      - rust
+    max_file_size: 1048576  # 1MB
+    max_chunk_size: 50      # files per chunk
+    timeout_seconds: 300    # 5 minutes per operation
+
+# Flow definitions for the agent mesh
+flows:
+  # Repository Analysis Flow
+  - name: "repository_analysis"
+    components:
+      - component_name: "repository_input"
+        component_module: "repository_input"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.request"
+              source_type: "user_interface"
+              broker_queue_name: "jerryrig/repository/analyze/request"
+      
+      - component_name: "repository_orchestrator"
+        component_module: "repository_orchestrator"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.request"
+              source_type: "processor"
+              broker_queue_name: "jerryrig/repository/analyze/request"
+            - source_expression: "output.chunk_request"
+              destination_expression: "chunker_input"
+              destination_type: "processor"
+              broker_queue_name: "jerryrig/repository/chunk/request"
+            - source_expression: "output.response"
+              destination_type: "user_interface"
+              broker_queue_name: "jerryrig/repository/analyze/response"
+
+      - component_name: "repository_chunker"
+        component_module: "repository_chunker"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.chunk_request"
+              source_type: "processor"
+              broker_queue_name: "jerryrig/repository/chunk/request"
+            - source_expression: "output.chunks"
+              destination_expression: "analyzer_input"
+              destination_type: "processor"
+              broker_queue_name: "jerryrig/code/analyze/request"
+
+      - component_name: "code_analyzer"
+        component_module: "code_analyzer"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.analyze_request"
+              source_type: "processor"
+              broker_queue_name: "jerryrig/code/analyze/request"
+            - source_expression: "output.analysis"
+              destination_expression: "aggregator_input"
+              destination_type: "processor"
+              broker_queue_name: "jerryrig/analysis/aggregate/request"
+
+      - component_name: "result_aggregator"
+        component_module: "result_aggregator"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.aggregate_request"
+              source_type: "processor"
+              broker_queue_name: "jerryrig/analysis/aggregate/request"
+            - source_expression: "output.aggregated_result"
+              destination_expression: "orchestrator_input"
+              destination_type: "processor"
+              broker_queue_name: "jerryrig/repository/analyze/complete"
+
+  # Repository Migration Flow
+  - name: "repository_migration"
+    components:
+      - component_name: "migration_input"
+        component_module: "repository_input"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.request"
+              source_type: "user_interface"
+              broker_queue_name: "jerryrig/repository/migrate/request"
+      
+      - component_name: "migration_orchestrator"
+        component_module: "repository_orchestrator"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.request"
+              source_type: "processor"
+              broker_queue_name: "jerryrig/repository/migrate/request"
+            - source_expression: "output.chunk_request"
+              destination_expression: "chunker_input"
+              destination_type: "processor"
+              broker_queue_name: "jerryrig/repository/chunk/request"
+            - source_expression: "output.response"
+              destination_type: "user_interface"
+              broker_queue_name: "jerryrig/repository/migrate/response"
+
+      - component_name: "migration_chunker"
+        component_module: "repository_chunker"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.chunk_request"
+              source_type: "processor"
+              broker_queue_name: "jerryrig/repository/chunk/request"
+            - source_expression: "output.chunks"
+              destination_expression: "analyzer_input"
+              destination_type: "processor"
+              broker_queue_name: "jerryrig/code/analyze/request"
+
+      - component_name: "migration_analyzer"
+        component_module: "code_analyzer"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.analyze_request"
+              source_type: "processor"
+              broker_queue_name: "jerryrig/code/analyze/request"
+            - source_expression: "output.analysis"
+              destination_expression: "migrator_input"
+              destination_type: "processor"
+              broker_queue_name: "jerryrig/code/migrate/request"
+
+      - component_name: "code_migrator"
+        component_module: "code_migrator"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.migrate_request"
+              source_type: "processor"
+              broker_queue_name: "jerryrig/code/migrate/request"
+            - source_expression: "output.migrated_code"
+              destination_expression: "aggregator_input"
+              destination_type: "processor"
+              broker_queue_name: "jerryrig/migration/aggregate/request"
+
+      - component_name: "migration_aggregator"
+        component_module: "result_aggregator"
+        component_config:
+          broker_type: solace
+          messaging:
+            - source_expression: "input.aggregate_request"
+              source_type: "processor"
+              broker_queue_name: "jerryrig/migration/aggregate/request"
+            - source_expression: "output.aggregated_result"
+              destination_expression: "orchestrator_input"
+              destination_type: "processor"
+              broker_queue_name: "jerryrig/repository/migrate/complete"

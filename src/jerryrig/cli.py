@@ -298,5 +298,141 @@ def full_migration(repo_url: str, target_language: str, output_dir: str):
         exit(1)
 
 
+@main.command()
+@click.option(
+    "--config", 
+    "-c", 
+    default="./sam_project/config.yaml", 
+    help="Path to SAM configuration file"
+)
+@click.option(
+    "--port", 
+    "-p", 
+    default=8000, 
+    help="Port for the web interface"
+)
+def start_mesh(config: str, port: int):
+    """Start the Solace Agent Mesh for distributed code migration."""
+    console.print(f"🕸️  Starting Solace Agent Mesh")
+    console.print(f"⚙️  Config: {config}")
+    console.print(f"🌐 Web UI: http://localhost:{port}")
+    
+    try:
+        # Check if config file exists
+        if not os.path.exists(config):
+            console.print(f"❌ Config file not found: {config}", style="red")
+            console.print(f"💡 Tip: Run 'jerryrig init-mesh' to create a SAM project structure")
+            exit(1)
+        
+        # Start the SAM mesh
+        from .core.mesh_launcher import MeshLauncher
+        launcher = MeshLauncher(config_path=config, web_port=port)
+        
+        console.print("\n🚀 Launching agent mesh components...")
+        launcher.start_mesh()
+        
+    except KeyboardInterrupt:
+        console.print("\n🛑 Stopping agent mesh...")
+    except Exception as e:
+        console.print(f"❌ Failed to start agent mesh: {e}", style="red")
+        exit(1)
+
+
+@main.command()
+@click.option(
+    "--output-dir", 
+    "-o", 
+    default="./sam_project", 
+    help="Directory to create SAM project structure"
+)
+def init_mesh(output_dir: str):
+    """Initialize a new Solace Agent Mesh project structure."""
+    console.print(f"🔧 Initializing Solace Agent Mesh project")
+    console.print(f"📁 Directory: {output_dir}")
+    
+    try:
+        from .core.mesh_initializer import MeshInitializer
+        initializer = MeshInitializer()
+        
+        result = initializer.create_sam_project(output_dir)
+        
+        console.print(f"✅ SAM project created successfully!")
+        console.print(f"📁 Project directory: {result['project_dir']}")
+        console.print(f"⚙️  Configuration: {result['config_file']}")
+        console.print(f"🤖 Agents: {len(result['agents'])} created")
+        
+        console.print(f"\n🚀 Next steps:")
+        console.print(f"1. Set environment variables (OPENAI_API_KEY, SOLACE_BROKER_URL)")
+        console.print(f"2. Start the mesh: jerryrig start-mesh -c {result['config_file']}")
+        console.print(f"3. Submit migration requests via the web interface")
+        
+    except Exception as e:
+        console.print(f"❌ Failed to initialize SAM project: {e}", style="red")
+        exit(1)
+
+
+@main.command()
+@click.argument("repo_url")
+@click.argument("target_language")
+@click.option(
+    "--mesh-url", 
+    "-m", 
+    default="http://localhost:8000", 
+    help="URL of the running agent mesh"
+)
+@click.option(
+    "--output-dir", 
+    "-o", 
+    default="./mesh_migration_output", 
+    help="Output directory for migration results"
+)
+def mesh_migration(repo_url: str, target_language: str, mesh_url: str, output_dir: str):
+    """Submit a repository migration request to the agent mesh."""
+    console.print(f"🕸️  Submitting migration to agent mesh")
+    console.print(f"📥 Repository: {repo_url}")
+    console.print(f"🎯 Target Language: {target_language}")
+    console.print(f"🌐 Mesh URL: {mesh_url}")
+    
+    try:
+        from .core.mesh_client import MeshClient
+        client = MeshClient(mesh_url)
+        
+        # Submit migration request
+        console.print("\n📤 Submitting migration request...")
+        request_id = client.submit_migration_request(
+            repository_url=repo_url,
+            target_language=target_language
+        )
+        
+        console.print(f"✅ Request submitted: {request_id}")
+        console.print(f"⏳ Monitoring progress...")
+        
+        # Monitor progress
+        result = client.monitor_migration_progress(request_id)
+        
+        if result['status'] == 'completed':
+            console.print(f"✅ Migration completed successfully!")
+            
+            # Download results
+            download_path = client.download_migration_results(request_id, output_dir)
+            console.print(f"📦 Results downloaded to: {download_path}")
+            
+            # Show summary
+            summary = result.get('summary', {})
+            console.print(f"\n📊 Migration Summary:")
+            console.print(f"   📁 Total Files: {summary.get('total_files', 'N/A')}")
+            console.print(f"   ✅ Successful: {summary.get('successful_migrations', 'N/A')}")
+            console.print(f"   ❌ Failed: {summary.get('failed_migrations', 'N/A')}")
+            console.print(f"   📈 Success Rate: {summary.get('success_rate', 0)*100:.1f}%")
+            
+        else:
+            console.print(f"❌ Migration failed: {result.get('error', 'Unknown error')}", style="red")
+            exit(1)
+            
+    except Exception as e:
+        console.print(f"❌ Mesh migration failed: {e}", style="red")
+        exit(1)
+
+
 if __name__ == "__main__":
     main()
